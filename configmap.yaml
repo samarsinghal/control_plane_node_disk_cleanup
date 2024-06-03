@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cleanup-jobs-script
+  namespace: cleanup
+data:
+  cleanup-jobs.sh: |
+    #!/bin/bash
+
+    # Get the list of control-plane nodes
+    NODES=$(kubectl get nodes -l node-role.kubernetes.io/control-plane --no-headers -o custom-columns=":metadata.name")
+
+    # Loop through each control-plane node
+    for NODE in $NODES; do
+      # Define the YAML manifest for the Job
+      cat <<EOF | kubectl apply -f -
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: control-plane-cleanup-job-$NODE-$(date +%s)
+      namespace: cleanup
+    spec:
+      template:
+        metadata:
+          labels:
+            app: control-plane-cleanup
+        spec:
+          serviceAccountName: cleanup-jobs-sa
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                    - $NODE
+          tolerations:
+          - key: "node-role.kubernetes.io/control-plane"
+            operator: "Exists"
+            effect: "NoSchedule"
+          - key: "node-role.kubernetes.io/master"
+            operator: "Exists"
+            effect: "NoSchedule"
+          containers:
+          - name: script-container
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 1000  # Set to a non-root user ID
+            image: busybox
+            command: 
+              - "/bin/sh"
+              - "-c"
+              - |
+                # Update actual commands for disk cleanup
+                echo "Running cleanup commands on node $NODE"
+                # Example commands:
+                df -h  # Display disk usage information
+                rm -rf /var/log/*  # Remove old log files
+                rm -rf /tmp/*      # Clear temporary directories
+          restartPolicy: OnFailure
+    EOF
+    done

@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cleanup-jobs-cronjob
+  namespace: cleanup
+spec:
+  # schedule: "*/5 * * * *"  # For Testing Schedule to run every 5 minutes 
+  schedule: "0 0 * * *"  # Schedule to run once a day at midnight
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: cleanup-jobs-sa  # Specify the service account here
+          initContainers:
+          - name: copy-script
+            image: busybox
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 1000  # Set to a non-root user ID
+            command: ["sh", "-c", "cp /config/cleanup-jobs.sh /scripts/cleanup-jobs.sh && chmod +x /scripts/cleanup-jobs.sh"]
+            volumeMounts:
+            - name: config-volume
+              mountPath: /config
+            - name: script-volume
+              mountPath: /scripts
+          containers:
+          - name: cleanup-jobs-container
+            image: bitnami/kubectl:1.21.0
+            command: ["/bin/sh", "/scripts/cleanup-jobs.sh"]
+            volumeMounts:
+            - name: script-volume
+              mountPath: /scripts
+          restartPolicy: OnFailure
+          volumes:
+          - name: config-volume
+            configMap:
+              name: cleanup-jobs-script
+              items:
+              - key: cleanup-jobs.sh
+                path: cleanup-jobs.sh
+          - name: script-volume
+            emptyDir: {}
