@@ -4,8 +4,8 @@ metadata:
   name: cleanup-jobs-cronjob
   namespace: cleanup
 spec:
-  # schedule: "*/5 * * * *"  # For Testing Schedule to run every 5 minutes 
-  schedule: "0 0 * * *"  # Schedule to run once a day at midnight
+  schedule: "*/5 * * * *"  # For Testing Schedule to run every 5 minutes 
+  # schedule: "0 0 * * *"  # Schedule to run once a day at midnight
   jobTemplate:
     spec:
       template:
@@ -30,6 +30,10 @@ spec:
             volumeMounts:
             - name: script-volume
               mountPath: /scripts
+            - name: var-log
+              mountPath: /var/log
+            - name: var-log-journal
+              mountPath: /var/log/journal
           restartPolicy: OnFailure
           volumes:
           - name: config-volume
@@ -40,3 +44,11 @@ spec:
                 path: cleanup-jobs.sh
           - name: script-volume
             emptyDir: {}
+          - name: var-log
+            hostPath:
+              path: /var/log
+              type: Directory
+          - name: var-log-journal
+            hostPath:
+              path: /var/log/journal
+              type: Directory

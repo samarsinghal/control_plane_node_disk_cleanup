@@ -47,7 +47,7 @@ data:
             securityContext:
               runAsNonRoot: true
               runAsUser: 1000  # Set to a non-root user ID
-            image: busybox
+            image: centos:latest
             command: 
               - "/bin/sh"
               - "-c"
@@ -58,6 +58,31 @@ data:
                 df -h  # Display disk usage information
                 rm -rf /var/log/*  # Remove old log files
                 rm -rf /tmp/*      # Clear temporary directories
+                journalctl --vacuum-size=10M # Delete the oldest log entries until the total size of the logs is less than or equal to 10MB
+                df -h  # Display disk usage information
+            volumeMounts:
+              - mountPath: /var/log
+                name: var-log
+                readOnly: false
+              - mountPath: /var/log/journal
+                name: var-log-journal
+                readOnly: false
+              - name: var-opt-journal-log
+                mountPath: /var/opt/journal/log
+                readOnly: false
           restartPolicy: OnFailure
+          volumes:
+          - name: var-log
+            hostPath:
+              path: /var/log
+              type: Directory
+          - name: var-log-journal
+            hostPath:
+              path: /var/log/journal
+              type: Directory
+          - name: var-opt-journal-log
+            hostPath:
+              path: /var/opt/journal/log
+              type: Directory
     EOF
     done
